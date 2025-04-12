@@ -13,7 +13,7 @@ interface WeatherApi {
 
     @GET("forecast/daily")
     suspend fun getForecast(
-        @Query("zip") zip: String,  // For example: "12345,us"
+        @Query("zip") zip: String,  
         @Query("appid") apiKey: String,
         @Query("cnt") count: Int = 16,
         @Query("units") units: String = "metric"

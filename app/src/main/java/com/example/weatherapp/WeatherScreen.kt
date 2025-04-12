@@ -1,18 +1,16 @@
 package com.example.weatherapp
 
+import android.widget.Toast
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.Text
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Button
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -22,9 +20,12 @@ import androidx.compose.runtime.livedata.observeAsState
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WeatherScreen(weatherViewModel: WeatherViewModel = viewModel()) {
-    val weather by weatherViewModel.weather.observeAsState()
+fun CurrentConditionsScreen(
+    onForecastClick: (String) -> Unit,
+    weatherViewModel: WeatherViewModel = viewModel()
+) {
     var zipCode by remember { mutableStateOf("") }
+    val context = LocalContext.current
 
     // Trigger fetching of current weather data
     LaunchedEffect(Unit) {
@@ -37,7 +38,7 @@ fun WeatherScreen(weatherViewModel: WeatherViewModel = viewModel()) {
                 title = {
                     Box(modifier = Modifier.fillMaxWidth()) {
                         Text(
-                            text = "My Weather App",
+                            text = stringResource(id = R.string.app_name),
                             modifier = Modifier.align(Alignment.Center),
                             textAlign = TextAlign.Center
                         )
@@ -60,7 +61,7 @@ fun WeatherScreen(weatherViewModel: WeatherViewModel = viewModel()) {
                         zipCode = newValue
                     }
                 },
-                label = { Text("Enter Zip Code") },
+                label = { Text(text = stringResource(id = R.string.enter_zip)) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 modifier = Modifier.fillMaxWidth()
             )
@@ -68,58 +69,57 @@ fun WeatherScreen(weatherViewModel: WeatherViewModel = viewModel()) {
             Button(
                 onClick = {
                     if (zipCode.length == 5) {
-                        // TODO: Implement navigation to forecast screen with this zip code
-                        println("Navigate to forecast screen with zip code: $zipCode")
+                        onForecastClick(zipCode)
                     } else {
-                        println("Please enter a valid 5-digit zip code")
+                        Toast.makeText(
+                            context,
+                            context.getString(R.string.invalid_zip),
+                            Toast.LENGTH_SHORT
+                        ).show()
                     }
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text("View 16-Day Forecast")
+                Text(text = stringResource(id = R.string.view_forecast))
             }
             Spacer(modifier = Modifier.height(16.dp))
 
             // Current Weather Display
-            weather?.let { data ->
-                Text(
-                    text = data.name,
-                    fontSize = 24.sp
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = "${data.main.temp.toInt()}°",
-                            fontSize = 64.sp
+            val weather by weatherViewModel.weather.observeAsState()
+            if (weather != null) {
+                Column {
+                    Text(text = weather!!.name, fontSize = 24.sp)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column {
+                            Text(text = "${weather!!.main.temp.toInt()}°", fontSize = 64.sp)
+                            Text(text = "Feels like ${(weather!!.main.temp + 6).toInt()}°", fontSize = 16.sp)
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(text = "Low: ${weather!!.main.temp_min}°")
+                            Text(text = "High: ${weather!!.main.temp_max}°")
+                            Text(text = "Humidity: ${weather!!.main.humidity}%")
+                            Text(text = "Pressure: ${weather!!.main.pressure} hPa")
+                        }
+                        Image(
+                            painter = painterResource(id = R.drawable.sun),
+                            contentDescription = "Weather Icon",
+                            modifier = Modifier.size(220.dp)
                         )
-                        Text(
-                            text = "Feels like ${(data.main.temp + 6).toInt()}°",
-                            fontSize = 16.sp
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text(text = "Low: ${data.main.temp_min}°")
-                        Text(text = "High: ${data.main.temp_max}°")
-                        Text(text = "Humidity: ${data.main.humidity}%")
-                        Text(text = "Pressure: ${data.main.pressure} hPa")
                     }
-                    Image(
-                        painter = painterResource(id = R.drawable.sun),
-                        contentDescription = "Weather Icon",
-                        modifier = Modifier.size(220.dp)
-                    )
                 }
-            } ?: Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("Fetching weather...")
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(innerPadding),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("Fetching weather...")
+                }
             }
         }
     }
