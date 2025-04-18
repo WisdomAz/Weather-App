@@ -1,9 +1,16 @@
 package com.example.weatherapp
 
+import android.Manifest
+import android.content.Intent
+import android.os.Build
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -24,10 +31,42 @@ fun CurrentConditionsScreen(
     onForecastClick: (String) -> Unit,
     weatherViewModel: WeatherViewModel = viewModel()
 ) {
-    var zipCode by remember { mutableStateOf("") }
     val context = LocalContext.current
 
-    // Fetch current weather
+    //  strings
+    val locationDeniedMsg = stringResource(R.string.location_permission_denied)
+    val notificationDeniedMsg = stringResource(R.string.notification_permission_denied)
+    val invalidZipMsg = stringResource(R.string.invalid_zip)
+
+    var zipCode by remember { mutableStateOf("") }
+
+    val locationLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            Intent(context, WeatherLocationService::class.java).also { intent ->
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O)
+                    context.startForegroundService(intent)
+                else
+                    context.startService(intent)
+            }
+        } else {
+            Toast.makeText(context, locationDeniedMsg, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val notifLauncher = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { granted ->
+            if (!granted) {
+                Toast.makeText(context, notificationDeniedMsg, Toast.LENGTH_SHORT).show()
+            }
+        }
+    } else null
+
+    val weatherState by weatherViewModel.weather.observeAsState()
+
     LaunchedEffect(Unit) {
         weatherViewModel.fetchWeather("Saint Paul")
     }
@@ -36,9 +75,9 @@ fun CurrentConditionsScreen(
         topBar = {
             TopAppBar(
                 title = {
-                    Box(modifier = Modifier.fillMaxWidth()) {
+                    Box(Modifier.fillMaxWidth()) {
                         Text(
-                            text = stringResource(id = R.string.app_name),
+                            text = stringResource(R.string.app_name),
                             modifier = Modifier.align(Alignment.Center),
                             textAlign = TextAlign.Center
                         )
@@ -53,68 +92,77 @@ fun CurrentConditionsScreen(
                 .padding(innerPadding)
                 .padding(16.dp)
         ) {
-            OutlinedTextField(
-                value = zipCode,
-                onValueChange = { newValue ->
-                    if (newValue.length <= 5 && newValue.all { it.isDigit() }) {
-                        zipCode = newValue
-                    }
-                },
-                label = { Text(text = stringResource(id = R.string.enter_zip)) },
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(modifier = Modifier.height(8.dp))
+            ) {
+                OutlinedTextField(
+                    value = zipCode,
+                    onValueChange = { new ->
+                        if (new.length <= 5 && new.all { it.isDigit() }) zipCode = new
+                    },
+                    label = { Text(stringResource(R.string.enter_zip)) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    modifier = Modifier.weight(1f)
+                )
+                Spacer(Modifier.width(8.dp))
+                IconButton(onClick = {
+                    locationLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                    notifLauncher?.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }) {
+                    Icon(
+                        imageVector = Icons.Filled.LocationOn,
+                        contentDescription = stringResource(R.string.my_location)
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
             Button(
                 onClick = {
                     if (zipCode.length == 5) {
                         onForecastClick(zipCode)
                     } else {
-                        Toast.makeText(
-                            context,
-                            context.getString(R.string.invalid_zip),
-                            Toast.LENGTH_SHORT
-                        ).show()
+                        Toast.makeText(context, invalidZipMsg, Toast.LENGTH_SHORT).show()
                     }
                 },
                 modifier = Modifier.fillMaxWidth()
             ) {
-                Text(text = stringResource(id = R.string.view_forecast))
+                Text(stringResource(R.string.view_forecast))
             }
-            Spacer(modifier = Modifier.height(16.dp))
 
-            val weather by weatherViewModel.weather.observeAsState()
-            if (weather != null) {
+            Spacer(Modifier.height(16.dp))
+
+            weatherState?.let { data ->
                 Column {
-                    Text(text = weather!!.name, fontSize = 24.sp)
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(text = data.name, fontSize = 24.sp)
+                    Spacer(Modifier.height(8.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text(text = "${weather!!.main.temp.toInt()}°", fontSize = 64.sp)
-                            Text(text = "Feels like ${(weather!!.main.temp + 6).toInt()}°", fontSize = 16.sp)
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text(text = "Low: ${weather!!.main.temp_min}°")
-                            Text(text = "High: ${weather!!.main.temp_max}°")
-                            Text(text = "Humidity: ${weather!!.main.humidity}%")
-                            Text(text = "Pressure: ${weather!!.main.pressure} hPa")
+                            Text("${data.main.temp.toInt()}°", fontSize = 64.sp)
+                            Text("Feels like ${(data.main.temp + 6).toInt()}°", fontSize = 16.sp)
+                            Spacer(Modifier.height(16.dp))
+                            Text(stringResource(R.string.low, data.main.temp_min))
+                            Text(stringResource(R.string.high, data.main.temp_max))
+                            Text(stringResource(R.string.humidity, data.main.humidity))
+                            Text(stringResource(R.string.pressure, data.main.pressure))
                         }
                         Image(
-                            painter = painterResource(id = R.drawable.sun),
-                            contentDescription = "Weather Icon",
+                            painter = painterResource(R.drawable.sun),
+                            contentDescription = stringResource(R.string.weather_description),
                             modifier = Modifier.size(220.dp)
                         )
                     }
                 }
-            } else {
-                Text(
-                    text = stringResource(id = R.string.fetching_weather),
-                    fontSize = 16.sp
-                )
-            }
+            } ?: Text(
+                text = stringResource(R.string.fetching_weather),
+                fontSize = 16.sp
+            )
         }
     }
 }

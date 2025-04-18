@@ -18,4 +18,13 @@ interface WeatherApi {
         @Query("cnt") count: Int = 16,
         @Query("units") units: String = "metric"
     ): ForecastResponse
+
+    @GET("weather")
+    suspend fun getWeatherByCoordinates(
+        @Query("lat") lat: Double,
+        @Query("lon") lon: Double,
+        @Query("appid") apiKey: String,
+        @Query("units") units: String = "metric"
+    ): WeatherResponse
+
 }
