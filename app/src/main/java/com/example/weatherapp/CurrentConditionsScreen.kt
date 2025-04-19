@@ -18,6 +18,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -33,12 +35,17 @@ fun CurrentConditionsScreen(
 ) {
     val context = LocalContext.current
 
-    //  strings
-    val locationDeniedMsg = stringResource(R.string.location_permission_denied)
-    val notificationDeniedMsg = stringResource(R.string.notification_permission_denied)
-    val invalidZipMsg = stringResource(R.string.invalid_zip)
+    // pull these into variables so we don't call stringResource inside semantics { ... }
+    val enterZipDesc       = stringResource(R.string.enter_zip)
+    val viewForecastDesc   = stringResource(R.string.view_forecast)
+    val myLocationDesc     = stringResource(R.string.my_location)
+    val locationDeniedMsg  = stringResource(R.string.location_permission_denied)
+    val notificationDenied = stringResource(R.string.notification_permission_denied)
+    val invalidZipMsg      = stringResource(R.string.invalid_zip)
+    val fetchingDesc       = stringResource(R.string.fetching_weather)
 
     var zipCode by remember { mutableStateOf("") }
+    val weatherState by weatherViewModel.weather.observeAsState()
 
     val locationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -59,13 +66,10 @@ fun CurrentConditionsScreen(
         rememberLauncherForActivityResult(
             ActivityResultContracts.RequestPermission()
         ) { granted ->
-            if (!granted) {
-                Toast.makeText(context, notificationDeniedMsg, Toast.LENGTH_SHORT).show()
-            }
+            if (!granted)
+                Toast.makeText(context, notificationDenied, Toast.LENGTH_SHORT).show()
         }
     } else null
-
-    val weatherState by weatherViewModel.weather.observeAsState()
 
     LaunchedEffect(Unit) {
         weatherViewModel.fetchWeather("Saint Paul")
@@ -87,32 +91,34 @@ fun CurrentConditionsScreen(
         }
     ) { innerPadding ->
         Column(
-            modifier = Modifier
+            Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
                 .padding(16.dp)
         ) {
             Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth()
+                Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 OutlinedTextField(
                     value = zipCode,
                     onValueChange = { new ->
-                        if (new.length <= 5 && new.all { it.isDigit() }) zipCode = new
+                        if (new.length <= 5 && new.all(Char::isDigit)) zipCode = new
                     },
-                    label = { Text(stringResource(R.string.enter_zip)) },
+                    label = { Text(enterZipDesc) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier
+                        .weight(1f)
+                        .semantics { contentDescription = enterZipDesc }
                 )
                 Spacer(Modifier.width(8.dp))
-                IconButton(onClick = {
+                IconButton({
                     locationLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
                     notifLauncher?.launch(Manifest.permission.POST_NOTIFICATIONS)
                 }) {
                     Icon(
                         imageVector = Icons.Filled.LocationOn,
-                        contentDescription = stringResource(R.string.my_location)
+                        contentDescription = myLocationDesc
                     )
                 }
             }
@@ -121,25 +127,25 @@ fun CurrentConditionsScreen(
 
             Button(
                 onClick = {
-                    if (zipCode.length == 5) {
-                        onForecastClick(zipCode)
-                    } else {
-                        Toast.makeText(context, invalidZipMsg, Toast.LENGTH_SHORT).show()
-                    }
+                    if (zipCode.length == 5) onForecastClick(zipCode)
+                    else Toast.makeText(context, invalidZipMsg, Toast.LENGTH_SHORT).show()
                 },
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics { contentDescription = viewForecastDesc }
             ) {
-                Text(stringResource(R.string.view_forecast))
+                Text(viewForecastDesc)
             }
 
             Spacer(Modifier.height(16.dp))
 
-            weatherState?.let { data ->
+            if (weatherState != null) {
+                val data = weatherState!!
                 Column {
-                    Text(text = data.name, fontSize = 24.sp)
+                    Text(data.name, fontSize = 24.sp)
                     Spacer(Modifier.height(8.dp))
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
+                        Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -159,10 +165,9 @@ fun CurrentConditionsScreen(
                         )
                     }
                 }
-            } ?: Text(
-                text = stringResource(R.string.fetching_weather),
-                fontSize = 16.sp
-            )
+            } else {
+                Text(fetchingDesc, fontSize = 16.sp)
+            }
         }
     }
 }
