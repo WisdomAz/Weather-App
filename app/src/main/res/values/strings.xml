@@ -8,8 +8,8 @@
     <string name="humidity">Humidity: %1$d%%</string>
     <string name="pressure">Pressure: %1$d hPa</string>
     <string name="enter_zip">Enter Zip Code</string>
-    <string name="view_forecast">View 16-Day Forecast</string>
-    <string name="invalid_zip">Please enter a valid 5-digit zip code</string>
+    <string name="view_forecast">View 16&#8209;Day Forecast</string>
+    <string name="invalid_zip">Please enter a valid 5&#8209;digit zip code</string>
     <string name="fetching_weather">Fetching weather...</string>
     <string name="my_location">My Location</string>
     <string name="location_permission_denied">Location permission denied</string>
